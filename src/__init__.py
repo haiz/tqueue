@@ -17,7 +17,7 @@ class ThreadingQueue:
     threads = []
     start_time = 0
 
-    def __init__(self, num_of_threads: int, worker, log_dir: str = "", worker_params_builder=None, worker_params: dict = None):
+    def __init__(self, num_of_threads: int, worker, log_dir: str = "", worker_params_builder=None, worker_params: dict = None, on_close_thread=None):
 
         queue_size = 3 * num_of_threads
 
@@ -33,13 +33,14 @@ class ThreadingQueue:
         wparams = worker_params if worker_params else {}
 
         self.threads = self.create_threads(worker, num_of_threads, thread_log_dir=thread_log_dir,
-                                           worker_params_builder=worker_params_builder, **wparams)
+                                           worker_params_builder=worker_params_builder, on_close_thread=on_close_thread,
+                                           **wparams)
 
     def is_expired(self) -> bool:
         return self.expired
 
     def create_threads(
-            self, handler, num_of_threads, thread_log_dir: str = "", worker_params_builder=None, **kwargs
+            self, handler, num_of_threads, thread_log_dir: str = "", worker_params_builder=None, on_close_thread=None, **kwargs
     ) -> List:
         # Create new threads
         thread_log_dir = f"{thread_log_dir}/{int(time.time())}-{num_of_threads}" if thread_log_dir else ""
@@ -49,7 +50,7 @@ class ThreadingQueue:
             log_file_path = f"{thread_log_dir}/Thread-{str(tid + 1)}" if thread_log_dir else ""
             logger = SimpleLogger(file_path=log_file_path)
             thread = WorkerThread(tid, self.is_expired, self.work_queue, self.queue_lock, handler, logger,
-                                  params=params, worker_params_builder=worker_params_builder)
+                                  params=params, worker_params_builder=worker_params_builder, on_close=on_close_thread)
             thread.start()
             self.threads.append(thread)
         return self.threads

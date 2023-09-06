@@ -10,7 +10,7 @@ from .simple_logger import SimpleLogger
 
 class WorkerThread(threading.Thread):
     def __init__(self, thread_id, func_is_expired, message_queue: queue.Queue, queue_lock: threading.Lock, handler,
-                 logger: SimpleLogger, params: dict = None, worker_params_builder=None):
+                 logger: SimpleLogger, params: dict = None, worker_params_builder=None, on_close=None):
         threading.Thread.__init__(self)
         self.func_is_expired = func_is_expired
         self.thread_id = thread_id
@@ -21,6 +21,7 @@ class WorkerThread(threading.Thread):
         self.handler_params = params or {}
         self.worker_params_builder = worker_params_builder
         self.handler = handler
+        self.on_close = on_close
 
     def run(self):
         self.logger.info("Starting " + self.name)
@@ -69,3 +70,8 @@ class WorkerThread(threading.Thread):
                 self.queue_lock.release()
                 await asyncio.sleep(empty_queue_waiting_time)
                 empty_queue_waiting_time += 0.1
+
+        if self.on_close:
+            ret = self.on_close(**params)
+            if inspect.iscoroutine(ret):
+                await ret
