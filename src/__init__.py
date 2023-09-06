@@ -14,13 +14,30 @@ class ThreadingQueue:
     expired: bool = False
     work_queue = None
     queue_lock = None
+    logger = None
     threads = []
+    start_time = 0
+
+    def __init__(self, num_of_threads: int, handler, log_dir: str = "", worker_params_builder=None, worker_params: dict = None):
+
+        queue_size = 3 * num_of_threads
+
+        self.logger = SimpleLogger()
+        self.work_queue = queue.Queue(queue_size)
+        self.queue_lock = threading.Lock()
+        self.start_time = time.time()
+
+        thread_log_dir = ""
+        if log_dir:
+            thread_log_dir = f"{log_dir}/threads"
+
+        wparams = worker_params if worker_params else {}
+
+        self.threads = self.create_threads(handler, num_of_threads, thread_log_dir=thread_log_dir,
+                                           worker_params_builder=worker_params_builder, **wparams)
 
     def is_expired(self) -> bool:
         return self.expired
-
-    def stop(self):
-        self.expired = True
 
     def create_threads(
             self, handler, num_of_threads, thread_log_dir: str = "", worker_params_builder=None, **kwargs
@@ -55,47 +72,19 @@ class ThreadingQueue:
         self.work_queue.put(data)
         self.queue_lock.release()
 
-    def threading(self, num_of_threads: int, handler, log_dir: str = "", worker_params_builder=None, worker_params: dict = None):
-        def decorator_threading(func):
-            @functools.wraps(func)
-            async def wrapper(*args, **kwargs):
+    def stop(self, ):
+        # Wait for queue to empty
+        while not self.work_queue.empty():
+            self.logger.debug(f"QSIZE: {self.work_queue.qsize()}")
+            time.sleep(1)
+            threads = [t for t in self.threads if t.is_alive()]
+            if not threads:
+                break
+        self.logger.debug("Queue is empty")
 
-                logger = SimpleLogger()
+        self.expired = True
 
-                queue_size = 3 * num_of_threads
-
-                self.work_queue = queue.Queue(queue_size)
-                self.queue_lock = threading.Lock()
-                start_time = time.time()
-
-                thread_log_dir = ""
-                if log_dir:
-                    thread_log_dir = f"{log_dir}/threads"
-
-                wparams = worker_params if worker_params else {}
-
-                self.threads = self.create_threads(handler, num_of_threads, thread_log_dir=thread_log_dir,
-                                                   worker_params_builder=worker_params_builder, **wparams)
-
-                try:
-                    await func(*args, **kwargs)
-                finally:
-                    # Wait for queue to empty
-                    while not self.work_queue.empty():
-                        logger.debug(f"QSIZE: {self.work_queue.qsize()}")
-                        time.sleep(1)
-                        threads = [t for t in self.threads if t.is_alive()]
-                        if not threads:
-                            break
-                    logger.debug("Queue is empty")
-
-                    self.expired = True
-
-                    # Wait for all threads to complete
-                    for t in self.threads:
-                        t.join()
-                    logger.info(f"Exiting Main Thread in {round(time.time() - start_time, 4)} seconds")
-
-            return wrapper
-
-        return decorator_threading
+        # Wait for all threads to complete
+        for t in self.threads:
+            t.join()
+        self.logger.info(f"Exiting Main Thread in {round(time.time() - self.start_time, 4)} seconds")

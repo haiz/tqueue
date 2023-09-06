@@ -4,9 +4,6 @@ import asyncio
 
 from src import ThreadingQueue
 
-# export PYTHONPATH=[Path to threading-queue]
-tq = ThreadingQueue()
-
 
 def worker(data, uid: int = 0, pb: int = 0):
     time.sleep(random.randint(1, 2))
@@ -17,11 +14,16 @@ def worker_params_builder():
     return {"pb": random.randint(10, 99)}
 
 
-@tq.threading(10, worker, worker_params_builder=worker_params_builder, worker_params={"uid": random.randint(1, 10)})
-async def consumer(my_queue: ThreadingQueue):
+async def consumer():
+    # Start threading queue
+    tq = ThreadingQueue(
+        10, worker, worker_params_builder=worker_params_builder, worker_params={"uid": random.randint(1, 10)}
+    )
     for i in range(1, 30):
-        await my_queue.put({"r": i})
+        await tq.put({"r": i})
+    tq.stop()
 
 
 if __name__ == "__main__":
-    asyncio.run(consumer(tq))
+    # export PYTHONPATH=[Path to threading-queue]
+    asyncio.run(consumer())
