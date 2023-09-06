@@ -35,7 +35,7 @@ class WorkerThread(threading.Thread):
         if self.worker_params_builder:
             built_params = self.worker_params_builder()
             if inspect.iscoroutine(built_params):
-                built_params = asyncio.run(built_params)
+                built_params = await built_params
             if isinstance(built_params, dict):
                 params.update(built_params)
 
@@ -60,7 +60,7 @@ class WorkerThread(threading.Thread):
                 try:
                     ret = self.handler(data, **params)
                     if inspect.iscoroutine(ret):
-                        asyncio.run(ret)
+                        await ret
                 except Exception as ex:
                     self.logger.error(exception=ex)
 
