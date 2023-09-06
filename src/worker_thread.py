@@ -33,7 +33,11 @@ class WorkerThread(threading.Thread):
     async def process_data(self):
         params = copy.deepcopy(self.handler_params)
         if self.worker_params_builder:
-            params.update(self.worker_params_builder())
+            built_params = self.worker_params_builder()
+            if inspect.iscoroutine(built_params):
+                built_params = asyncio.run(built_params)
+            if isinstance(built_params, dict):
+                params.update(built_params)
 
         empty_queue_waiting_time = 0.1
         while not self.func_is_expired():
