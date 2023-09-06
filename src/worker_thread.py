@@ -3,6 +3,7 @@ import copy
 import threading
 import queue
 import time
+import inspect
 
 from .simple_logger import SimpleLogger
 
@@ -53,7 +54,9 @@ class WorkerThread(threading.Thread):
                 self.logger.debug(f"{self.name} processing {data}")
 
                 try:
-                    self.handler(data, **params)
+                    ret = self.handler(data, **params)
+                    if inspect.iscoroutine(ret):
+                        asyncio.run(ret)
                 except Exception as ex:
                     self.logger.error(exception=ex)
 

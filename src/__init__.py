@@ -1,6 +1,5 @@
 import asyncio
 import copy
-import functools
 import queue
 import threading
 import time
@@ -18,7 +17,7 @@ class ThreadingQueue:
     threads = []
     start_time = 0
 
-    def __init__(self, num_of_threads: int, handler, log_dir: str = "", worker_params_builder=None, worker_params: dict = None):
+    def __init__(self, num_of_threads: int, worker, log_dir: str = "", worker_params_builder=None, worker_params: dict = None):
 
         queue_size = 3 * num_of_threads
 
@@ -33,7 +32,7 @@ class ThreadingQueue:
 
         wparams = worker_params if worker_params else {}
 
-        self.threads = self.create_threads(handler, num_of_threads, thread_log_dir=thread_log_dir,
+        self.threads = self.create_threads(worker, num_of_threads, thread_log_dir=thread_log_dir,
                                            worker_params_builder=worker_params_builder, **wparams)
 
     def is_expired(self) -> bool:
