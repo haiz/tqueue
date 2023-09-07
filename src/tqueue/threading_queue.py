@@ -3,7 +3,7 @@ import copy
 import queue
 import threading
 import time
-from typing import List
+from typing import List, Any
 
 from .worker_thread import WorkerThread
 from .simple_logger import SimpleLogger
@@ -55,7 +55,7 @@ class ThreadingQueue:
             self.threads.append(thread)
         return self.threads
 
-    async def put(self, data: dict):
+    async def put(self, data: Any):
         queue_full_waiting_time = 0.01
         while True:
             acquire_waiting_time = 0.0002
@@ -72,7 +72,7 @@ class ThreadingQueue:
         self.work_queue.put(data)
         self.queue_lock.release()
 
-    def stop(self, ):
+    def stop(self):
         # Wait for queue to empty
         while not self.work_queue.empty():
             self.logger.debug(f"QSIZE: {self.work_queue.qsize()}")

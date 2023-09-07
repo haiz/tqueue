@@ -2,7 +2,7 @@ import time
 import random
 import asyncio
 
-from src import ThreadingQueue
+from tqueue import ThreadingQueue
 
 
 def worker(data):
@@ -20,5 +20,5 @@ async def consumer():
 
 
 if __name__ == "__main__":
-    # export PYTHONPATH=[Path to threading-queue]
+    # export PYTHONPATH=[Path to src]
     asyncio.run(consumer())

@@ -1,3 +1,5 @@
+# tqueue package
+
 This library allow to do you tasks in multiple threads easily.
 
 This is helpful when you have a lot of data to processing.
@@ -7,7 +9,10 @@ Asume that you have a large list of item to process. You need to write a consume
 Workers will get data from queue then process it. Putting data to queue should be quicker then processing it.
 
 ### Installation
-TODO
+
+```bash
+pip install tqueue
+```
 
 
 ### Usage
