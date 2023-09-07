@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+## 0.0.8 (7th Sep, 2023)
+
+### Added
+
+* Using lib as a context manager
+
 ## 0.0.7 (7th Sep, 2023)
 
 ### Added

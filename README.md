@@ -4,7 +4,7 @@ This library allow to do you tasks in multiple threads easily.
 
 This is helpful when you have a lot of data to processing.
 
-Asume that you have a large list of item to process. You need to write a consumer to put items to queue one by one.
+Asume that you have a large list of item to process. You need to write a producer to put items to queue one by one.
 
 Workers will get data from queue then process it. Putting data to queue should be quicker then processing it.
 
@@ -20,13 +20,25 @@ pip install tqueue
 ```python
 from tqueue import ThreadingQueue
 ```
-2. Set threading for a consumer
-Apply the threading for a consumer:
+2. Create worker
+- Create worker function that get the data as the first parameter
+- Worker can be a normal function or a coroutine function
+- Worker will be called in child threads
+
+```python
+def worker(data):
+    pass
+async def worker2(data):
+    pass
+```
+
+3. Set threading for a producer
+Apply the threading for a producer:
 - a. Set the number of threads and the worker
 - b. Put data to queue
 
 ```python
-async def consumer():
+async def producer():
     # Start the queue
     tq = ThreadingQueue(40, worker)
     ...
@@ -34,28 +46,33 @@ async def consumer():
     ...
     tq.stop()
 ```
-3. Create worker
-- Create worker function that get the data as the first parameter
-- Worker can be a normal function or a coroutine function
+
+- You can also use ThreadingQueue like a context manager
+
 ```python
-def worker1(data):
-    pass
-async def worker2(data):
-    pass
+async def producer():
+    # Start the queue
+    with ThreadingQueue(40, worker) as tq:
+        ...
+        tq.put(data)
 ```
-4. Run consumer
+
+4. Run producer
 ```python
-await consumer()
+await producer()
 ```
 or
 ```python
-asyncio.run(consumer())
+asyncio.run(producer())
 ```
 
 
 ### Note
-1. Apart from number of threads and the worker, you can set `log_dir` to store logs to file and `worker_params_builder` to generate parameters for each worker.
-2. Apart from all above params, the rest of keyword params will be pass to the worker. 
+1. You can add more keyword params for all workers running in threads via `worker_params`
+2. Apart from number of threads and the worker, you can set `log_dir` to store logs to file 
+3. and `worker_params_builder` to generate parameters for each worker.
+4. `on_thread_close` is an optional param as a function that is helpful when you need to close the database connection when a thread done
+5. Apart from all above params, the rest of keyword params will be pass to the worker. 
 
 ### Example
 
@@ -94,7 +111,7 @@ def worker(image_info, cursor, uid: int = 0):
     cursor.execute(sql, (image_info["width"], image_info["height"], uid, image_info["id"]))
     
 
-async def consumer(source_file: str):
+async def producer(source_file: str):
     tq = ThreadingQueue(
         NUM_OF_THREADS, worker, log_dir=f"logs/update-images", worker_params_builder=worker_params_builder, params={"uid": 123}
     )
@@ -109,5 +126,18 @@ async def consumer(source_file: str):
 
 
 if __name__ == "__main__":
-    asyncio.run(consumer("images.jsonl"))
+    asyncio.run(producer("images.jsonl"))
+```
+
+### Development
+
+#### Build project
+
+1. Update the version number in file `src/tqueue/__version__.py`
+2. Update Change log
+3. Build and publish the changes
+
+```bash
+python3 -m build
+python3 -m twine upload dist/*
 ```

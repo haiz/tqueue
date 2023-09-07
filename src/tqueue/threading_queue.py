@@ -36,6 +36,12 @@ class ThreadingQueue:
                                            worker_params_builder=worker_params_builder, on_close_thread=on_close_thread,
                                            **wparams)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.stop()
+
     def is_expired(self) -> bool:
         return self.expired
 
