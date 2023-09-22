@@ -17,7 +17,8 @@ class SimpleLogger:
         if file_path:
             try:
                 file_dir = os.path.dirname(file_path)
-                os.makedirs(file_dir, exist_ok=True)
+                if file_dir:
+                    os.makedirs(file_dir, exist_ok=True)
                 self.file_path = file_path
             except Exception as ex:
                 print(self.format(self.ERROR, str(ex)))
@@ -35,7 +36,7 @@ class SimpleLogger:
         if exception:
             level = self.ERROR
         if not msg and exception:
-            msg = str(exception)
+            msg = f"[{type(exception)}]" + str(exception)
 
         log_str = self.format(level, msg)
 

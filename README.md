@@ -113,7 +113,8 @@ def worker(image_info, cursor, uid: int = 0):
 
 async def producer(source_file: str):
     tq = ThreadingQueue(
-        NUM_OF_THREADS, worker, log_dir=f"logs/update-images", worker_params_builder=worker_params_builder, params={"uid": 123}
+        NUM_OF_THREADS, worker, log_dir=f"logs/update-images", worker_params_builder=worker_params_builder,
+        params={"uid": 123}, retry_count=1
     )
     with open(source_file, 'r') as f:
         for line in f:
