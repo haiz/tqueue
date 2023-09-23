@@ -27,7 +27,7 @@ class ThreadingQueue:
     ]
 
     def __init__(self, num_of_threads: int, worker, log_dir: str = "", worker_params_builder=None,
-                 worker_params: dict = None, on_close_thread=None, retry_count: int = 0):
+                 worker_params: dict = None, on_close_thread=None, retry_count: int = 0, std_out_log_level: int = 0):
 
         queue_size = 3 * num_of_threads
 
@@ -42,7 +42,7 @@ class ThreadingQueue:
             thread_log_dir = f"{log_dir}/threads/{int(time.time())}-{num_of_threads}"
             log_file_path = f"{thread_log_dir}/failed-data.txt"
 
-        self.logger = SimpleLogger(file_path=log_file_path)
+        self.logger = SimpleLogger(file_path=log_file_path, std_out_log_level=std_out_log_level)
 
         self.settings = {
             "worker": worker,
@@ -51,6 +51,7 @@ class ThreadingQueue:
             "on_close_thread": on_close_thread,
             "retry_count": retry_count,
             "worker_params": worker_params if worker_params else {},
+            "std_out_log_level": std_out_log_level,
         }
 
         self.threads = self.create_threads(num_of_threads)
@@ -98,11 +99,12 @@ class ThreadingQueue:
         on_close_thread = self.settings["on_close_thread"]
         retry_count = self.settings["retry_count"]
         worker_params = self.settings["worker_params"]
+        std_out_log_level = self.settings["std_out_log_level"]
 
         params = copy.deepcopy(worker_params)
 
         log_file_path = f"{thread_log_dir}/Thread-{thread_id}" if thread_log_dir else ""
-        logger = SimpleLogger(file_path=log_file_path)
+        logger = SimpleLogger(file_path=log_file_path, std_out_log_level=std_out_log_level)
         thread = WorkerThread(thread_id, self.is_expired, self.work_queue, self.queue_lock, handler, logger,
                               params=params, worker_params_builder=worker_params_builder, on_close=on_close_thread,
                               retry_count=retry_count, on_restart=self.on_restart_thread, on_fail=self.on_thread_failed,

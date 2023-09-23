@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+## 0.0.14 (23th Sep, 2023)
+
+* Allow to config std_out_log_level
+
 ## 0.0.13 (22th Sep, 2023)
 
 * Update project setting
