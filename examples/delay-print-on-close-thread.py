@@ -18,17 +18,16 @@ def on_close_thread(**kwargs):
     print(f"ON CLOSE THREAD: {kwargs}")
 
 
-async def consumer():
+def consumer():
     # Start threading queue
-    tq = ThreadingQueue(
+    with ThreadingQueue(
         10, worker, worker_params_builder=worker_params_builder, worker_params={"uid": random.randint(1, 10)},
         on_close_thread=on_close_thread
-    )
-    for i in range(1, 30):
-        await tq.put({"r": i})
-    tq.stop()
+    ) as tq:
+        for i in range(1, 30):
+            tq.put({"r": i})
 
 
 if __name__ == "__main__":
     # export PYTHONPATH=[Path to src]
-    asyncio.run(consumer())
+    consumer()

@@ -10,12 +10,12 @@ def worker(data):
     print(data["n"])
 
 
-async def consumer():
+def consumer():
     with ThreadingQueue(10, worker) as tq:
         for i in range(1, 30):
-            await tq.put({"n": i})
+            tq.put({"n": i})
 
 
 if __name__ == "__main__":
     # export PYTHONPATH=[Path to src]
-    asyncio.run(consumer())
+    consumer()

@@ -21,13 +21,12 @@ async def on_close_thread(**kwargs):
 
 async def consumer():
     # Start threading queue
-    tq = ThreadingQueue(
+    async with ThreadingQueue(
         10, worker, worker_params_builder=worker_params_builder, worker_params={"uid": random.randint(1, 10)},
         on_close_thread=on_close_thread
-    )
-    for i in range(1, 30):
-        await tq.put({"r": i})
-    tq.stop()
+    ) as tq:
+        for i in range(1, 30):
+            await tq.put({"r": i})
 
 
 if __name__ == "__main__":

@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+## 0.0.16 (25th Sep, 2023)
+
+* Add typing: Callable
+
+## 0.0.15 (25th Sep, 2023)
+
+* Support both sync and async
+
 ## 0.0.14 (23th Sep, 2023)
 
 * Allow to config std_out_log_level

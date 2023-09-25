@@ -37,24 +37,24 @@ Apply the threading for a producer:
 - a. Set the number of threads and the worker
 - b. Put data to queue
 
-```python
-async def producer():
-    # Start the queue
-    tq = ThreadingQueue(40, worker)
-    ...
-    tq.put(data)
-    ...
-    tq.stop()
-```
-
 - You can also use ThreadingQueue like a context manager
 
 ```python
-async def producer():
+def producer():
     # Start the queue
     with ThreadingQueue(40, worker) as tq:
         ...
         tq.put(data)
+```
+
+- You can also use it async
+
+```python
+async def producer():
+    # Start the queue
+    async with ThreadingQueue(40, worker) as tq:
+        ...
+        await tq.put(data)
 ```
 
 4. Run producer
@@ -72,7 +72,31 @@ asyncio.run(producer())
 2. Apart from number of threads and the worker, you can set `log_dir` to store logs to file 
 3. and `worker_params_builder` to generate parameters for each worker.
 4. `on_thread_close` is an optional param as a function that is helpful when you need to close the database connection when a thread done
-5. Apart from all above params, the rest of keyword params will be pass to the worker. 
+5. Apart from all above params, the rest of keyword params will be pass to the worker.
+
+* If you change the lib from 0.0.14 version to newer, please update the code to fix the bug:
+```python
+# 0.0.14
+with ThreadingQueue(num_of_threads, worker) as tq:
+    ...
+    await tq.put(data)
+```
+
+```python
+# From 0.0.15
+
+# Sync
+with ThreadingQueue(num_of_threads, worker) as tq:
+    ...
+    tq.put(data)
+
+# Async
+async with ThreadingQueue(num_of_threads, worker) as tq:
+    ...
+    await tq.put(data)
+```
+
+* In both sync and async case, you can provide worker as async function.
 
 ### Example
 
@@ -96,38 +120,49 @@ def get_db_connection():
 
 
 # Build params for worker, the params will be persistent with thread
+# This function is called when init a new thread or retry
 def worker_params_builder():
     # Threads use db connection separately
     conn = get_db_connection()
     conn.autocommit(1)
     cursor = conn.cursor()
-    return {"cursor": cursor}
+    return {"cursor": cursor, "connection": conn}
 
 
-def worker(image_info, cursor, uid: int = 0):
+# To clear resources: close database connection, ...
+# This function is called when the thread ends
+def on_close_thread(cursor, connection):
+    cursor.close()
+    connection.close()
+
+
+def worker(image_info, cursor, uid: int, **kwargs):
     # Update image info into database
     
     sql = "UPDATE images SET width = %s, height = %s, uid = %s WHERE id = %s"
     cursor.execute(sql, (image_info["width"], image_info["height"], uid, image_info["id"]))
     
 
-async def producer(source_file: str):
-    tq = ThreadingQueue(
-        NUM_OF_THREADS, worker, log_dir=f"logs/update-images", worker_params_builder=worker_params_builder,
-        params={"uid": 123}, retry_count=1
-    )
-    with open(source_file, 'r') as f:
-        for line in f:
-            if not line:
-                continue
-            data = json.loads(line)
-
-            await tq.put(data)
-    tq.stop()
+def producer(source_file: str):
+    with ThreadingQueue(
+        NUM_OF_THREADS, worker,
+        log_dir=f"logs/update-images",
+        worker_params_builder=worker_params_builder,
+        on_close_thread=on_close_thread,
+        params={"uid": 123},
+        retry_count=1
+    ) as tq:
+        with open(source_file, 'r') as f:
+            for line in f:
+                if not line:
+                    continue
+                data = json.loads(line)
+    
+                tq.put(data)
 
 
 if __name__ == "__main__":
-    asyncio.run(producer("images.jsonl"))
+    producer("images.jsonl")
 ```
 
 ### Development

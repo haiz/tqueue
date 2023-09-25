@@ -37,6 +37,7 @@ test = [
 Homepage = "https://github.com/haiz/tqueue"
 Documentation = "https://github.com/haiz/tqueue/blob/main/README.md"
 Changelog = "https://github.com/haiz/tqueue/blob/main/CHANGELOG.md"
+Examples = "https://github.com/haiz/tqueue/blob/main/examples"
 Source = "https://github.com/haiz/tqueue"
 
 [tool.hatch.version]

@@ -22,15 +22,14 @@ def worker(data: Item):
     data.bar()
 
 
-async def consumer():
-    tq = ThreadingQueue(10, worker)
-    for i in range(1, 30):
-        item = Item(i)
-        # Put an Item object to queue
-        await tq.put(item)
-    tq.stop()
+def consumer():
+    with ThreadingQueue(10, worker) as tq:
+        for i in range(1, 30):
+            item = Item(i)
+            # Put an Item object to queue
+            tq.put(item)
 
 
 if __name__ == "__main__":
     # export PYTHONPATH=[Path to src]
-    asyncio.run(consumer())
+    consumer()

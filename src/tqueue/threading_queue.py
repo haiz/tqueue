@@ -4,13 +4,13 @@ import json
 import queue
 import threading
 import time
-from typing import List, Any
+from typing import List, Any, Callable
 
 from .worker_thread import WorkerThread
 from .simple_logger import SimpleLogger
 
 
-class ThreadingQueue:
+class ThreadingQueueBase:
     expired: bool = False
     work_queue = None
     queue_lock = None
@@ -26,8 +26,9 @@ class ThreadingQueue:
         "Command Out of Sync",  # SqlAlchemy
     ]
 
-    def __init__(self, num_of_threads: int, worker, log_dir: str = "", worker_params_builder=None,
-                 worker_params: dict = None, on_close_thread=None, retry_count: int = 0, std_out_log_level: int = 0):
+    def __init__(self, num_of_threads: int, worker: Callable = None, log_dir: str = "", worker_params: dict = None,
+                 worker_params_builder: Callable = None, on_close_thread: Callable = None, retry_count: int = 0,
+                 std_out_log_level: int = 0):
 
         queue_size = 3 * num_of_threads
 
@@ -56,22 +57,41 @@ class ThreadingQueue:
 
         self.threads = self.create_threads(num_of_threads)
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self.stop()
-
     def is_expired(self) -> bool:
         return self.expired
 
-    def should_restart(self, ex):
+    def stop(self):
+        # Wait for queue to empty
+        while not self.work_queue.empty():
+            self.logger.debug(f"QSIZE: {self.work_queue.qsize()}")
+            time.sleep(1)
+            threads = [t for t in self.threads if t.is_alive()]
+            if not threads:
+                break
+        self.logger.debug("Queue is empty")
+
+        self.expired = True
+
+        # Wait for all threads to complete
+        for t in self.threads:
+            t.join()
+        self.logger.info(f"Exiting Main Thread in {round(time.time() - self.start_time, 4)} seconds")
+
+    def should_restart(self, ex: Exception):
         if len(self.restart_on_errors) > 0:
             error = str(ex)
             for e_msg in self.restart_on_errors:
                 if e_msg in error:
                     return True
         return False
+
+    def new_thread_id(self, thread_id: str) -> str:
+        parts = thread_id.split(".")
+        if len(parts) >= 2:
+            parts[-1] = str(int(parts[-1]) + 1)
+        else:
+            parts.append("1")
+        return ".".join(parts)
 
     def on_restart_thread(self, tid: str, data: Any, ex: Exception = None):
         self.restarting_thread_ids.append(tid)
@@ -86,7 +106,7 @@ class ThreadingQueue:
             msg = str(data)
         self.logger.error(f"Thread {tid} ==> {msg}")
 
-    def create_threads(self, num_of_threads) -> List:
+    def create_threads(self, num_of_threads: int) -> List:
         for tid in range(num_of_threads):
             thread = self.create_thread(str(tid + 1))
             self.threads.append(thread)
@@ -113,59 +133,120 @@ class ThreadingQueue:
         thread.start()
         return thread
 
-    async def put(self, data: Any):
-        queue_full_waiting_time = 0.01
+    def _restart_failed_threads(self):
+        while len(self.restarting_thread_ids) > 0:
+            thread_id = self.restarting_thread_ids.pop(0)
+            thread = self.create_thread(self.new_thread_id(thread_id))
+            self.threads.append(thread)
+
+    # Handle restarting threads
+    def _check_requeue(self):
+        if len(self.requeue_data) > 0:
+            self.threads = [t for t in self.threads if t.is_alive()]
+            if len(self.threads) > 0:
+                return self.requeue_data.pop(0)
+        return None
+
+    def _wait_for_acquire_lock(self, waited_time: float = 0) -> float:
+        acquire_waiting_time = waited_time + 0.0002
+        if waited_time >= 0.1:
+            acquire_waiting_time = 0.1
+        if not self.queue_lock.acquire():
+            return acquire_waiting_time
+        return 0
+
+    def _wait_for_not_full_queue(self, waited_time: float = 0) -> float:
+        queue_full_waiting_time = waited_time + 0.01
+        if waited_time >= 1:
+            queue_full_waiting_time = 1
+        if self.work_queue.full():
+            self.queue_lock.release()
+            return queue_full_waiting_time
+        return 0
+
+
+class SyncThreadingQueue(ThreadingQueueBase):
+    def _put(self, data: Any):
+        qfull_waited_time = 0
         while True:
-            acquire_waiting_time = 0.0002
-            while not self.queue_lock.acquire():
-                await asyncio.sleep(acquire_waiting_time)
-                acquire_waiting_time += 0.0002
-            if self.work_queue.full():
-                self.queue_lock.release()
-                await asyncio.sleep(queue_full_waiting_time)
-                queue_full_waiting_time += 0.01
+            wait_time = self._wait_for_acquire_lock()
+            while wait_time > 0:
+                time.sleep(wait_time)
+                wait_time = self._wait_for_acquire_lock(wait_time)
+
+            wait_time = self._wait_for_not_full_queue(qfull_waited_time)
+            if wait_time > 0:
+                time.sleep(wait_time)
+                qfull_waited_time += wait_time
             else:
                 break
 
         self.work_queue.put(data)
         self.queue_lock.release()
 
-        await self.restart_threads()
+    def put(self, data: Any):
+        self._put(data)
 
-    # Handle restarting threads
-    async def restart_threads(self):
-        while len(self.restarting_thread_ids) > 0:
-            thread_id = self.restarting_thread_ids.pop(0)
-            thread = self.create_thread(self.new_thread_id(thread_id))
-            self.threads.append(thread)
+        self._restart_failed_threads()
+        requeue_data = self._check_requeue()
+        if requeue_data:
+            self.put(data)
 
-        if len(self.requeue_data) > 0:
-            self.threads = [t for t in self.threads if t.is_alive()]
-            if len(self.threads) > 0:
-                data = self.requeue_data.pop(0)
-                await self.put(data)
 
-    def stop(self):
-        # Wait for queue to empty
-        while not self.work_queue.empty():
-            self.logger.debug(f"QSIZE: {self.work_queue.qsize()}")
-            time.sleep(1)
-            threads = [t for t in self.threads if t.is_alive()]
-            if not threads:
+class AsyncThreadingQueue(ThreadingQueueBase):
+    async def _put(self, data: Any):
+        qfull_waited_time = 0
+        while True:
+            wait_time = self._wait_for_acquire_lock()
+            while wait_time > 0:
+                await asyncio.sleep(wait_time)
+                wait_time = self._wait_for_acquire_lock(wait_time)
+
+            wait_time = self._wait_for_not_full_queue(qfull_waited_time)
+            if wait_time > 0:
+                await asyncio.sleep(wait_time)
+                qfull_waited_time += wait_time
+            else:
                 break
-        self.logger.debug("Queue is empty")
 
-        self.expired = True
+        self.work_queue.put(data)
+        self.queue_lock.release()
 
-        # Wait for all threads to complete
-        for t in self.threads:
-            t.join()
-        self.logger.info(f"Exiting Main Thread in {round(time.time() - self.start_time, 4)} seconds")
+    async def put(self, data: Any):
+        await self._put(data)
 
-    def new_thread_id(self, thread_id: str) -> str:
-        parts = thread_id.split(".")
-        if len(parts) >= 2:
-            parts[-1] = str(int(parts[-1]) + 1)
-        else:
-            parts.append("1")
-        return ".".join(parts)
+        self._restart_failed_threads()
+        requeue_data = self._check_requeue()
+        if requeue_data:
+            await self.put(data)
+
+
+class ThreadingQueue:
+
+    def __init__(self, num_of_threads: int, worker: Callable = None, log_dir: str = "", worker_params: dict = None,
+                 worker_params_builder: Callable = None, on_close_thread: Callable = None, retry_count: int = 0,
+                 std_out_log_level: int = 0):
+        self.init_params = {
+            "num_of_threads": num_of_threads,
+            "worker": worker,
+            "log_dir": log_dir,
+            "worker_params_builder": worker_params_builder,
+            "worker_params": worker_params,
+            "on_close_thread": on_close_thread,
+            "retry_count": retry_count,
+            "std_out_log_level": std_out_log_level,
+        }
+
+    def __enter__(self):
+        self.instance = SyncThreadingQueue(**self.init_params)
+        return self.instance
+
+    def __exit__(self, type, value, traceback):
+        self.instance.stop()
+
+    async def __aenter__(self):
+        self.instance = AsyncThreadingQueue(**self.init_params)
+        return self.instance
+
+    async def __aexit__(self, type, value, traceback):
+        self.instance.stop()

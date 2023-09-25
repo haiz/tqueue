@@ -12,13 +12,12 @@ def worker(data):
         raise Exception("Invalid n")
 
 
-async def consumer():
-    tq = ThreadingQueue(10, worker, log_dir="logs")
-    for i in range(1, 30):
-        await tq.put({"n": i})
-    tq.stop()
+def consumer():
+    with ThreadingQueue(10, worker, log_dir="logs") as tq:
+        for i in range(1, 30):
+            tq.put({"n": i})
 
 
 if __name__ == "__main__":
     # export PYTHONPATH=[Path to src]
-    asyncio.run(consumer())
+    consumer()
