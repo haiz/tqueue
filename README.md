@@ -58,6 +58,8 @@ async def producer():
 ```
 
 4. Run producer
+
+* Async producer:
 ```python
 await producer()
 ```
