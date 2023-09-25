@@ -1,12 +1,12 @@
 # tqueue package
 
-This library allow to do you tasks in multiple threads easily.
+This library allows you to do your tasks in multiple threads easily.
 
-This is helpful when you have a lot of data to processing.
+This is helpful when you have a lot of data to process.
 
-Asume that you have a large list of item to process. You need to write a producer to put items to queue one by one.
+Assume that you have a large list of items to process. You need to write a producer to put items in the queue one by one.
 
-Workers will get data from queue then process it. Putting data to queue should be quicker then processing it.
+Workers will get data from the queue and then process it. Putting data into a queue should be quicker than processing it (worker).
 
 ### Installation
 
@@ -20,8 +20,8 @@ pip install tqueue
 ```python
 from tqueue import ThreadingQueue
 ```
-2. Create worker
-- Create worker function that get the data as the first parameter
+2. Create a worker
+- Create a worker function that gets the data as the first parameter
 - Worker can be a normal function or a coroutine function
 - Worker will be called in child threads
 
@@ -35,9 +35,9 @@ async def worker2(data):
 3. Set threading for a producer
 Apply the threading for a producer:
 - a. Set the number of threads and the worker
-- b. Put data to queue
+- b. Put data into the queue
 
-- You can also use ThreadingQueue like a context manager
+- You can also use ThreadingQueue as a context manager
 
 ```python
 def producer():
@@ -69,12 +69,12 @@ asyncio.run(producer())
 
 ### Note
 1. You can add more keyword params for all workers running in threads via `worker_params`
-2. Apart from number of threads and the worker, you can set `log_dir` to store logs to file 
+2. Apart from the number of threads and the worker, you can set `log_dir` to store logs to file 
 3. and `worker_params_builder` to generate parameters for each worker.
 4. `on_thread_close` is an optional param as a function that is helpful when you need to close the database connection when a thread done
-5. Apart from all above params, the rest of keyword params will be pass to the worker.
+5. Apart from all the above params, the rest of the keyword params will be passed to the worker.
 
-* If you change the lib from 0.0.14 version to newer, please update the code to fix the bug:
+* If you change the lib from the 0.0.14 version to the newer, please update the code to fix the bug:
 ```python
 # 0.0.14
 with ThreadingQueue(num_of_threads, worker) as tq:
@@ -96,7 +96,8 @@ async with ThreadingQueue(num_of_threads, worker) as tq:
     await tq.put(data)
 ```
 
-* In both sync and async case, you can provide worker as async function.
+* In both sync and async cases, you can provide a worker as an async function.
+* The async version is a little bit better in performance because it uses `asyncio.sleep` to wait when the queue is full compared to `time.sleep` in the sync version. In most cases, the difference in performance is not much.
 
 ### Example
 
@@ -119,7 +120,7 @@ def get_db_connection():
                            cursorclass=pymysql.cursors.DictCursor)
 
 
-# Build params for worker, the params will be persistent with thread
+# Build params for the worker, the params will be persistent with the thread
 # This function is called when init a new thread or retry
 def worker_params_builder():
     # Threads use db connection separately
@@ -170,7 +171,7 @@ if __name__ == "__main__":
 #### Build project
 
 1. Update the version number in file `src/tqueue/__version__.py`
-2. Update Change log
+2. Update the Change log
 3. Build and publish the changes
 
 ```bash
