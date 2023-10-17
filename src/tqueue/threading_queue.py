@@ -9,7 +9,29 @@ from datetime import datetime
 from typing import List, Any, Callable
 
 from .worker_thread import WorkerThread
-from .simple_logger import SimpleLogger
+
+
+log_formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  %(message)s")
+
+
+def setup_logger(
+        name: str, file_path: str = "", file_log_level: int = logging.ERROR, console_log_level: int = logging.DEBUG
+) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(log_formatter)
+    console_handler.setLevel(console_log_level)
+    logger.addHandler(console_handler)
+
+    if file_path:
+        file_handler = logging.FileHandler(file_path)
+        file_handler.setFormatter(log_formatter)
+        file_handler.setLevel(file_log_level)
+        logger.addHandler(file_handler)
+    return logger
 
 
 class ThreadingQueueBase:
@@ -40,12 +62,16 @@ class ThreadingQueueBase:
 
         time_str = datetime.utcnow().strftime('%Y-%m-%d-%H-%M-%S')
         log_file_path = f"{log_dir + '/' if log_dir else ''}{time_str}.main.log"
-        self.logger = SimpleLogger(file_path=log_file_path, console_log_level=console_log_level, file_log_level=file_log_level)
+        self.logger = setup_logger(
+            'tqueue_main', file_path=log_file_path, console_log_level=console_log_level, file_log_level=file_log_level
+        )
 
         log_file_path = ""
         if log_dir:
             log_file_path = f"{log_dir}/{time_str}.{num_of_threads}_threads.log"
-        self.thread_logger = SimpleLogger(file_path=log_file_path, console_log_level=console_log_level, file_log_level=file_log_level)
+        self.thread_logger = setup_logger(
+            'tqueue_threads', file_path=log_file_path, console_log_level=console_log_level, file_log_level=file_log_level
+        )
 
         self.settings = {
             "worker": worker,

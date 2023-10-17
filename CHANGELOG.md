@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+## 0.0.19 (17th Oct, 2023)
+
+* Update: Remove SimpleLogger class
+
+
 ## 0.0.18 (17th Oct, 2023)
 
 * Fix: Missing file_log_level parameter

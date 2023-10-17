@@ -4,9 +4,8 @@ import threading
 import queue
 import time
 import inspect
+from logging import Logger
 from typing import Any
-
-from .simple_logger import SimpleLogger
 
 
 async def execute_func(func, *args, **kwargs):
@@ -28,7 +27,7 @@ async def execute_func_safe(func, *args, **kwargs):
 class WorkerThread(threading.Thread):
 
     def __init__(self, thread_id: str, func_is_expired, message_queue: queue.Queue, queue_lock: threading.Lock, handler,
-                 logger: SimpleLogger, params: dict = None, worker_params_builder=None, on_close=None,
+                 logger: Logger, params: dict = None, worker_params_builder=None, on_close=None,
                  retry_count: int = 0, on_restart=None, on_fail=None, should_restart=None):
         threading.Thread.__init__(self)
         self.func_is_expired = func_is_expired
