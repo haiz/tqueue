@@ -220,7 +220,7 @@ class ThreadingQueue:
 
     def __init__(self, num_of_threads: int, worker: Callable = None, log_dir: str = "", worker_params: dict = None,
                  worker_params_builder: Callable = None, on_close_thread: Callable = None, retry_count: int = 0,
-                 console_log_level: int = 0):
+                 console_log_level: int = logging.INFO, file_log_level: int = logging.ERROR):
         self.init_params = {
             "num_of_threads": num_of_threads,
             "worker": worker,
@@ -230,6 +230,7 @@ class ThreadingQueue:
             "on_close_thread": on_close_thread,
             "retry_count": retry_count,
             "console_log_level": console_log_level,
+            "file_log_level": file_log_level,
         }
 
     def __enter__(self):
