@@ -1,9 +1,11 @@
 import asyncio
 import copy
 import json
+import logging
 import queue
 import threading
 import time
+from datetime import datetime
 from typing import List, Any, Callable
 
 from .worker_thread import WorkerThread
@@ -28,31 +30,29 @@ class ThreadingQueueBase:
 
     def __init__(self, num_of_threads: int, worker: Callable = None, log_dir: str = "", worker_params: dict = None,
                  worker_params_builder: Callable = None, on_close_thread: Callable = None, retry_count: int = 0,
-                 std_out_log_level: int = 0):
+                 console_log_level: int = logging.INFO, file_log_level: int = logging.ERROR):
 
         queue_size = 3 * num_of_threads
 
-        self.logger = SimpleLogger()
         self.work_queue = queue.Queue(queue_size)
         self.queue_lock = threading.Lock()
         self.start_time = time.time()
 
-        thread_log_dir = ""
-        log_file_path = f"failed-data.{int(time.time())}-{num_of_threads}.txt"
-        if log_dir:
-            thread_log_dir = f"{log_dir}/threads/{int(time.time())}-{num_of_threads}"
-            log_file_path = f"{thread_log_dir}/failed-data.txt"
+        time_str = datetime.utcnow().strftime('%Y-%m-%d-%H-%M-%S')
+        log_file_path = f"{log_dir + '/' if log_dir else ''}{time_str}.main.log"
+        self.logger = SimpleLogger(file_path=log_file_path, console_log_level=console_log_level, file_log_level=file_log_level)
 
-        self.logger = SimpleLogger(file_path=log_file_path, std_out_log_level=std_out_log_level)
+        log_file_path = ""
+        if log_dir:
+            log_file_path = f"{log_dir}/{time_str}.{num_of_threads}_threads.log"
+        self.thread_logger = SimpleLogger(file_path=log_file_path, console_log_level=console_log_level, file_log_level=file_log_level)
 
         self.settings = {
             "worker": worker,
-            "thread_log_dir": thread_log_dir,
             "worker_params_builder": worker_params_builder,
             "on_close_thread": on_close_thread,
             "retry_count": retry_count,
             "worker_params": worker_params if worker_params else {},
-            "std_out_log_level": std_out_log_level,
         }
 
         self.threads = self.create_threads(num_of_threads)
@@ -114,18 +114,13 @@ class ThreadingQueueBase:
 
     def create_thread(self, thread_id: str):
         handler = self.settings["worker"]
-        thread_log_dir = self.settings["thread_log_dir"]
         worker_params_builder = self.settings["worker_params_builder"]
         on_close_thread = self.settings["on_close_thread"]
         retry_count = self.settings["retry_count"]
         worker_params = self.settings["worker_params"]
-        std_out_log_level = self.settings["std_out_log_level"]
 
         params = copy.deepcopy(worker_params)
-
-        log_file_path = f"{thread_log_dir}/Thread-{thread_id}" if thread_log_dir else ""
-        logger = SimpleLogger(file_path=log_file_path, std_out_log_level=std_out_log_level)
-        thread = WorkerThread(thread_id, self.is_expired, self.work_queue, self.queue_lock, handler, logger,
+        thread = WorkerThread(thread_id, self.is_expired, self.work_queue, self.queue_lock, handler, self.thread_logger,
                               params=params, worker_params_builder=worker_params_builder, on_close=on_close_thread,
                               retry_count=retry_count, on_restart=self.on_restart_thread, on_fail=self.on_thread_failed,
                               should_restart=self.should_restart
@@ -225,7 +220,7 @@ class ThreadingQueue:
 
     def __init__(self, num_of_threads: int, worker: Callable = None, log_dir: str = "", worker_params: dict = None,
                  worker_params_builder: Callable = None, on_close_thread: Callable = None, retry_count: int = 0,
-                 std_out_log_level: int = 0):
+                 console_log_level: int = 0):
         self.init_params = {
             "num_of_threads": num_of_threads,
             "worker": worker,
@@ -234,7 +229,7 @@ class ThreadingQueue:
             "worker_params": worker_params,
             "on_close_thread": on_close_thread,
             "retry_count": retry_count,
-            "std_out_log_level": std_out_log_level,
+            "console_log_level": console_log_level,
         }
 
     def __enter__(self):

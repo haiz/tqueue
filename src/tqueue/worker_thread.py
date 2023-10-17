@@ -47,12 +47,12 @@ class WorkerThread(threading.Thread):
         self.retry_count = retry_count
 
     def run(self):
-        self.info("Starting")
+        self.logger.info(self.f("Starting"))
         start_time = time.time()
 
         asyncio.run(self.process_data())
 
-        self.info(f"Exiting in {round(time.time() - start_time, 4)} seconds")
+        self.logger.info(self.f(f"Exiting in {round(time.time() - start_time, 4)} seconds"))
 
     async def process_data(self):
         params = copy.deepcopy(self.handler_params)
@@ -69,26 +69,33 @@ class WorkerThread(threading.Thread):
 
             acquire_time = time.time() - start_acquire_time
             if acquire_time > 1:
-                self.warn(f"acquire lock time: {acquire_time}")
+                self.logger.warning(self.f(f"acquire lock time: {acquire_time}"))
 
             if not self.message_queue.empty():
                 data = self.message_queue.get()
                 self.queue_lock.release()
-                self.debug(f"processing {data}")
+                self.logger.debug(self.f(f"processing {data}"))
 
                 try:
                     await execute_func(self.handler, data, **params)
                 except Exception as ex:
                     if self.retry_count > 0:
+                        ex = None
                         for i in range(self.retry_count):
-                            ex = await self.retry(data, params)
-                            if not ex:
+                            try:
+                                await self.retry(data, params)
                                 break
+                            except Exception as ex:
+                                # Log the error on the last retry
+                                if i + 1 == self.retry_count:
+                                    self.logger.exception(self.f(f"Retry {i + 1} error."))
+                    else:
+                        self.logger.exception(self.f(f"Worker error"))
+
                     if ex and isinstance(ex, Exception):
                         if self.should_restart and self.should_restart(ex):
                             self.on_restart(self.thread_id, data, ex)
                             return
-                        self.error(exception=ex)
                         self.on_fail(self.thread_id, data)
 
                 empty_queue_waiting_time = 0.1
@@ -105,7 +112,7 @@ class WorkerThread(threading.Thread):
             params.update(built_params)
 
     async def retry(self, data: Any, params: dict):
-        self.debug(f"RETRY processing {data}")
+        self.logger.debug(self.f(f"RETRY processing {data}"))
 
         await execute_func_safe(self.on_close, **params)
 
@@ -113,18 +120,5 @@ class WorkerThread(threading.Thread):
 
         return await execute_func_safe(self.handler, data, **params)
 
-    def debug(self, msg: str = "", exception: Exception = None):
-        msg = f"{self.name} -> {msg} {'[' + str(type(exception)) + ']' + str(exception) if exception else ''}"
-        self.logger.debug(msg, exception=exception)
-
-    def info(self, msg: str = "", exception: Exception = None):
-        msg = f"{self.name} -> {msg} {'[' + str(type(exception)) + ']' + str(exception) if exception else ''}"
-        self.logger.info(msg, exception=exception)
-
-    def warn(self, msg: str = "", exception: Exception = None):
-        msg = f"{self.name} -> {msg} {'[' + str(type(exception)) + ']' + str(exception) if exception else ''}"
-        self.logger.warn(msg, exception=exception)
-
-    def error(self, msg: str = "", exception: Exception = None):
-        msg = f"{self.name} -> {msg} {'[' + str(type(exception)) + ']' + str(exception) if exception else ''}"
-        self.logger.error(msg, exception=exception)
+    def f(self, msg):
+        return f"{self.name}: {msg}"

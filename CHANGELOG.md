@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+## 0.0.17 (17th Oct, 2023)
+
+* Use logging for log 
+* All children threads use same log file
+
 ## 0.0.16 (25th Sep, 2023)
 
 * Add typing: Callable
