@@ -84,12 +84,13 @@ class WorkerThread(threading.Thread):
                             try:
                                 await self.retry(data, params)
                                 break
-                            except Exception as ex:
+                            except Exception as tex:
+                                ex = tex
                                 # Log the error on the last retry
                                 if i + 1 == self.retry_count:
-                                    self.logger.exception(self.f(f"Retry {i + 1} error."))
+                                    self.logger.exception(self.f(f"Retry {i + 1} error on data {data}."))
                     else:
-                        self.logger.exception(self.f(f"Worker error"))
+                        self.logger.exception(self.f(f"Worker error on data: {data}"))
 
                     if ex and isinstance(ex, Exception):
                         if self.should_restart and self.should_restart(ex):
@@ -117,7 +118,7 @@ class WorkerThread(threading.Thread):
 
         await self._build_params(params)
 
-        return await execute_func_safe(self.handler, data, **params)
+        await execute_func(self.handler, data, **params)
 
     def f(self, msg):
         return f"{self.name}: {msg}"

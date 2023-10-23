@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+## 0.0.20 (23th Oct, 2023)
+
+* Fix: Wrong try/except
+
 ## 0.0.19 (17th Oct, 2023)
 
 * Update: Remove SimpleLogger class
