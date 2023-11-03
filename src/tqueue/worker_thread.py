@@ -28,7 +28,7 @@ class WorkerThread(threading.Thread):
 
     def __init__(self, thread_id: str, func_is_expired, message_queue: queue.Queue, queue_lock: threading.Lock, handler,
                  logger: Logger, params: dict = None, worker_params_builder=None, on_close=None,
-                 retry_count: int = 0, on_restart=None, on_fail=None, should_restart=None):
+                 retry_count: int = 0, on_failure=None):
         threading.Thread.__init__(self)
         self.func_is_expired = func_is_expired
         self.thread_id = thread_id
@@ -40,9 +40,7 @@ class WorkerThread(threading.Thread):
         self.worker_params_builder = worker_params_builder
         self.handler = handler
         self.on_close = on_close
-        self.on_restart = on_restart
-        self.on_fail = on_fail
-        self.should_restart = should_restart
+        self.on_failure = on_failure
         self.retry_count = retry_count
 
     def run(self):
@@ -75,28 +73,25 @@ class WorkerThread(threading.Thread):
                 self.queue_lock.release()
                 self.logger.debug(self.f(f"processing {data}"))
 
+                ex = None
                 try:
                     await execute_func(self.handler, data, **params)
-                except Exception as ex:
-                    if self.retry_count > 0:
-                        ex = None
-                        for i in range(self.retry_count):
-                            try:
-                                await self.retry(data, params)
-                                break
-                            except Exception as tex:
-                                ex = tex
-                                # Log the error on the last retry
-                                if i + 1 == self.retry_count:
-                                    self.logger.exception(self.f(f"Retry {i + 1} error on data {data}."))
-                    else:
-                        self.logger.exception(self.f(f"Worker error on data: {data}"))
+                except Exception as tex:
+                    ex = tex
+                    self.logger.exception(self.f(f"Worker error on data (retry={self.retry_count}): {data}"))
 
-                    if ex and isinstance(ex, Exception):
-                        if self.should_restart and self.should_restart(ex):
-                            self.on_restart(self.thread_id, data, ex)
-                            return
-                        self.on_fail(self.thread_id, data)
+                if ex and self.retry_count > 0:
+                    ex = None
+                    for i in range(self.retry_count):
+                        try:
+                            await self.retry(data, params)
+                            break
+                        except Exception as tex:
+                            ex = tex
+                            self.logger.exception(self.f(f"Retry {i + 1} error on data {data}."))
+
+                if ex and self.on_failure:
+                    self.on_failure(data, ex)
 
                 empty_queue_waiting_time = 0.1
             else:
@@ -112,7 +107,7 @@ class WorkerThread(threading.Thread):
             params.update(built_params)
 
     async def retry(self, data: Any, params: dict):
-        self.logger.debug(self.f(f"RETRY processing {data}"))
+        self.logger.info(self.f(f"RETRY processing {data}"))
 
         await execute_func_safe(self.on_close, **params)
 

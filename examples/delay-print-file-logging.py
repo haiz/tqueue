@@ -1,13 +1,10 @@
 import time
 import random
-import asyncio
 
 from tqueue import ThreadingQueue
 
 
 def worker(data):
-    time.sleep(random.randint(1, 2))
-    print(data["n"])
     if data["n"] % 10 == 9:
         raise Exception("Invalid n")
 
@@ -18,6 +15,13 @@ def consumer():
             tq.put({"n": i})
 
 
+def consumer_retry():
+    with ThreadingQueue(10, worker, log_dir="logs", retry_count=2) as tq:
+        for i in range(1, 10):
+            tq.put({"n": i})
+
+
 if __name__ == "__main__":
     # export PYTHONPATH=[Path to src]
-    consumer()
+    # consumer()
+    consumer_retry()

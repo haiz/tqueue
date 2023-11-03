@@ -1,5 +1,6 @@
 *.pyc
 .coverage
+.DS_Store
 .pytest_cache/
 .mypy_cache/
 __pycache__/
@@ -13,3 +14,5 @@ dist/
 .idea/
 logs/
 data/
+.vscode/
+*.main.log

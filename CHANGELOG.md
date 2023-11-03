@@ -6,7 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
-## 0.0.20 (23th Oct, 2023)
+## 0.0.21 (3rd Nov, 2023)
+
+* Add: `on_failure` callback
+
+* Update: Don't support thread restarting anymore
+
+## 0.0.20 (23rd Oct, 2023)
 
 * Fix: Wrong try/except
 
