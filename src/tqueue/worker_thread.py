@@ -32,7 +32,6 @@ class WorkerThread(threading.Thread):
         threading.Thread.__init__(self)
         self.func_is_expired = func_is_expired
         self.thread_id = thread_id
-        self.name = "Thread-" + thread_id
         self.message_queue = message_queue
         self.queue_lock = queue_lock
         self.logger = logger
@@ -116,4 +115,4 @@ class WorkerThread(threading.Thread):
         await execute_func(self.handler, data, **params)
 
     def f(self, msg):
-        return f"{self.name}: {msg}"
+        return f"{self.thread_id}: {msg}"

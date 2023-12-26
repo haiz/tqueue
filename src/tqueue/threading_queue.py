@@ -34,36 +34,35 @@ def setup_logger(
 
 
 class ThreadingQueueBase:
-    expired: bool = False
-    work_queue = None
-    queue_lock = None
-    logger = None
-    threads = []
-    start_time = 0
-
     def __init__(self, num_of_threads: int, worker: Callable = None, log_dir: str = "", worker_params: dict = None,
                  worker_params_builder: Callable = None, on_close_thread: Callable = None, retry_count: int = 0,
-                 on_failure: Callable = None, console_log_level: int = logging.INFO, file_log_level: int = logging.ERROR):
+                 on_failure: Callable = None, console_log_level: int = logging.INFO,
+                 file_log_level: int = logging.ERROR, name: str = ""):
 
         queue_size = 3 * num_of_threads
 
         self.work_queue = queue.Queue(queue_size)
         self.queue_lock = threading.Lock()
         self.start_time = time.time()
+        self.name = name
+        self.expired = False
 
         time_str = datetime.utcnow().strftime('%Y-%m-%d-%H-%M-%S')
         log_file_path = f"{log_dir + '/' if log_dir else ''}{time_str}.main.log"
+        log_name = self.name + ".main" or "tqueue.main"
         self.logger = setup_logger(
-            'tqueue_main', file_path=log_file_path, console_log_level=console_log_level, file_log_level=file_log_level
+            log_name, file_path=log_file_path, console_log_level=console_log_level, file_log_level=file_log_level
         )
 
         log_file_path = ""
         if log_dir:
             log_file_path = f"{log_dir}/{time_str}.{num_of_threads}_threads.log"
+        log_name = self.name + ".threads" or "tqueue.threads"
         self.thread_logger = setup_logger(
-            'tqueue_threads', file_path=log_file_path, console_log_level=console_log_level, file_log_level=file_log_level
+            log_name, file_path=log_file_path, console_log_level=console_log_level, file_log_level=file_log_level
         )
 
+        # Save the settings for threads, so that we can recreate a thread
         self.settings = {
             "worker": worker,
             "worker_params_builder": worker_params_builder,
@@ -73,7 +72,11 @@ class ThreadingQueueBase:
             "worker_params": worker_params if worker_params else {},
         }
 
-        self.threads = self.create_threads(num_of_threads)
+        # Init threads
+        self.threads = []
+        for tid in range(num_of_threads):
+            thread = self.create_thread(f"{self.name + '-' if self.name else ''}Thread-{tid + 1}")
+            self.threads.append(thread)
 
     def is_expired(self) -> bool:
         return self.expired
@@ -93,7 +96,7 @@ class ThreadingQueueBase:
         # Wait for all threads to complete
         for t in self.threads:
             t.join()
-        self.logger.info(f"Exiting Main Thread in {round(time.time() - self.start_time, 4)} seconds")
+        self.logger.info(f"Exiting {self.name} Main in {round(time.time() - self.start_time, 4)} seconds")
 
     def new_thread_id(self, thread_id: str) -> str:
         parts = thread_id.split(".")
@@ -102,12 +105,6 @@ class ThreadingQueueBase:
         else:
             parts.append("1")
         return ".".join(parts)
-
-    def create_threads(self, num_of_threads: int) -> List:
-        for tid in range(num_of_threads):
-            thread = self.create_thread(str(tid + 1))
-            self.threads.append(thread)
-        return self.threads
 
     def create_thread(self, thread_id: str):
         handler = self.settings["worker"]
@@ -187,7 +184,7 @@ class ThreadingQueue:
 
     def __init__(self, num_of_threads: int, worker: Callable = None, log_dir: str = "", worker_params: dict = None,
                  worker_params_builder: Callable = None, on_close_thread: Callable = None, retry_count: int = 0,
-                 console_log_level: int = logging.INFO, file_log_level: int = logging.ERROR):
+                 console_log_level: int = logging.INFO, file_log_level: int = logging.ERROR, name: str = ""):
         self.init_params = {
             "num_of_threads": num_of_threads,
             "worker": worker,
@@ -198,6 +195,7 @@ class ThreadingQueue:
             "retry_count": retry_count,
             "console_log_level": console_log_level,
             "file_log_level": file_log_level,
+            "name": name,
         }
 
     def __enter__(self):

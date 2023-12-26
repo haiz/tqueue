@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+
+## 0.0.22 (26th Dec, 2023)
+
+* Add: Support queue inside queue
+
+* Update: Allow to set a name for tqueue
+
+
 ## 0.0.21 (3rd Nov, 2023)
 
 * Add: `on_failure` callback
